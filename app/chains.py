@@ -7,13 +7,9 @@ Contains QA chain, Quiz generation chain, and Calculator agent.
 import re
 from typing import Dict, List, Optional, Tuple, Any
 
-from langchain.chains import ConversationalRetrievalChain, LLMChain
-from langchain.chains.conversational_retrieval.base import BaseConversationalRetrievalChain
+from langchain_classic.chains import ConversationalRetrievalChain
+from langchain_classic.chains.conversational_retrieval.base import BaseConversationalRetrievalChain
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain.agents import initialize_agent, Tool
-from langchain.agents.chat import ChatAgent
-from langchain_core.language_models import BaseChatModel
-from langchain_core.runnables import Runnable
 
 from app.models import get_chat_model
 from app.prompts import QA_PROMPT, CONDENSE_PROMPT, QUIZ_PROMPT
@@ -31,11 +27,6 @@ class QARetrievalChain:
 
     def _create_chain(self) -> BaseConversationalRetrievalChain:
         """Create the conversational retrieval chain."""
-        condense_chain = LLMChain(
-            llm=self.chat_model,
-            prompt=CONDENSE_PROMPT,
-        )
-
         def get_chat_history(chat_history_messages: List) -> str:
             """Format chat history for the prompt."""
             history_str = ""
@@ -139,10 +130,6 @@ class QARetrievalChain:
     def _handle_calculator(self, question: str) -> Tuple[str, List[str]]:
         """Handle calculator/math questions using the math agent."""
         try:
-            from langchain_community.utilities import WikipediaAPIWrapper
-            from langchain_agents import create_python_agent
-            from langchain.tools import Tool as LangChainTool
-
             # Extract the actual calculation from the question
             # Look for patterns like "5 + 3", "10 * 2", etc.
             calc_pattern = r'([\d\s+\-*/().]+)'
@@ -235,15 +222,16 @@ class QuizChain:
             context = context[:8000] + "\n\n[Content truncated for quiz generation]"
 
         try:
-            # Generate quiz using the chain
-            chain = LLMChain(llm=self.chat_model, prompt=QUIZ_PROMPT)
+            # Generate quiz using Runnable
+            from langchain_core.output_parsers import StrOutputParser
+            chain = self.chat_model | QUIZ_PROMPT | StrOutputParser()
             result = chain.invoke({
                 "context": context,
                 "quiz_type": quiz_type,
                 "num_questions": num_questions
             })
 
-            quiz_text = result.text if hasattr(result, 'text') else str(result)
+            quiz_text = result if isinstance(result, str) else str(result)
 
             # Parse and store the quiz
             self.current_quiz = self._parse_quiz(quiz_text, quiz_type)

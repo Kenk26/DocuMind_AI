@@ -10,8 +10,8 @@ from langchain_core.callbacks.manager import CallbackManager
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 
 # Model configuration
-CHAT_MODEL = "llama3.2"
-EMBEDDING_MODEL = "nomic-embed-text"
+CHAT_MODEL = "minimax-m2.7:cloud"
+EMBEDDING_MODEL = "qwen3-embedding:0.6b"
 TEMPERATURE = 0.7
 TIMEOUT = 120
 
