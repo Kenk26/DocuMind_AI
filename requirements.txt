@@ -1,16 +1,24 @@
-# DocuMind AI Requirements
+# DocMind_AI — Python Dependencies
+# Install with: pip install -r requirements.txt
 
-# LangChain and Ollama
-langchain>=0.1.0
-langchain-community>=0.0.20
-langchain-ollama>=0.0.1
+# ── LangChain Core ────────────────────────────────────────────────────────────
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-community>=0.3.0
 
-# Document Processing
-PyPDF2>=3.0.0
-python-docx>=1.0.0
+# ── LangChain Ollama Integration ──────────────────────────────────────────────
+langchain-ollama>=0.2.0
 
-# Vector Database
-chromadb>=0.4.22
+# ── LangChain Chroma Vector Store ─────────────────────────────────────────────
+langchain-chroma>=0.1.4
+chromadb>=0.5.0
 
-# Utilities
-tiktoken>=0.5.0
+# ── Document Loaders ─────────────────────────────────────────────────────────
+pypdf>=4.0.0               # PDF loading
+docx2txt>=0.8              # DOCX loading
+unstructured>=0.15.0       # Markdown + fallback loader
+python-docx>=1.1.0         # Word document support
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+tiktoken>=0.7.0            # Token counting (optional, for OpenAI-style splitting)
+pydantic>=2.0.0            # Data validation (LangChain dependency)
