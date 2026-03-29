@@ -96,8 +96,7 @@ class DocMindApp:
         tk.Label(model_frame, text="Chat Model:", bg="#0f3460",
                  fg="#a8b2d8", font=("Segoe UI", 9)).pack(side="left")
         model_cb = ttk.Combobox(model_frame, textvariable=self.model_var,
-                                values=["minimax-m2.7:cloud", "llama3.2", "llama3.1", "mistral",
-                                        "gemma2", "phi3"],
+                                values=["minimax-m2.7:cloud"],
                                 width=18, state="readonly")
         model_cb.pack(side="left", padx=(5, 0))
         model_cb.bind("<<ComboboxSelected>>", self._on_model_change)
