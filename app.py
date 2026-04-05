@@ -27,6 +27,16 @@ class DocMindApp:
         self.chat_history = []
 
         self._build_ui()
+        self._restore_session()
+
+    def _restore_session(self):
+        """Try to restore a previously indexed document from disk."""
+        info = self.rag_engine.load_existing()
+        if info:
+            self._on_process_done(info, restored=True)
+            self._set_status("✅ Restored previous session — ready to answer questions!")
+        else:
+            self._set_status("Ready  •  Upload a document to begin")
 
     # ── UI Construction ──────────────────────────────────────────────────────
 
@@ -81,6 +91,8 @@ class DocMindApp:
         style.map("Clear.TButton",
                   background=[("active", "#404060")])
 
+    # In _build_header, replace the hardcoded values with the engine's model map:
+
     def _build_header(self):
         hdr = ttk.Frame(self.root, style="Header.TFrame")
         hdr.pack(fill="x", padx=0, pady=0)
@@ -90,13 +102,16 @@ class DocMindApp:
         ttk.Label(hdr, text="RAG-Powered Document Intelligence",
                   style="Sub.TLabel").pack(side="left", padx=5, pady=15)
 
-        self.model_var = tk.StringVar(value="minimax-m2.7:cloud")
+        # Build combobox values directly from the engine's model registry
+        model_values = list(RAGEngine.CHAT_MODELS.values())
+        self.model_var = tk.StringVar(value=RAGEngine.DEFAULT_CHAT_MODEL)
+
         model_frame = ttk.Frame(hdr, style="Header.TFrame")
         model_frame.pack(side="right", padx=20, pady=10)
         tk.Label(model_frame, text="Chat Model:", bg="#0f3460",
                  fg="#a8b2d8", font=("Segoe UI", 9)).pack(side="left")
         model_cb = ttk.Combobox(model_frame, textvariable=self.model_var,
-                                values=["minimax-m2.7:cloud"],
+                                values=model_values,
                                 width=18, state="readonly")
         model_cb.pack(side="left", padx=(5, 0))
         model_cb.bind("<<ComboboxSelected>>", self._on_model_change)
@@ -323,7 +338,7 @@ class DocMindApp:
 
         threading.Thread(target=worker, daemon=True).start()
 
-    def _on_process_done(self, info: dict):
+    def _on_process_done(self, info: dict, restored: bool = False):
         self.progress.stop()
         self.process_btn.config(state="normal")
         self._set_status("✅ Document indexed — ready to answer questions!")
@@ -341,9 +356,15 @@ class DocMindApp:
         )
         self.doc_info.config(state="disabled")
 
-        self._append_chat("system",
-            f"✅ Document '{Path(self.loaded_file).name}' has been processed "
-            f"({info.get('chunks')} chunks). You can now ask questions!", "ai_tag", "ai_msg")
+        if restored:
+            self._append_chat("system",
+                f"✅ Previous session restored ({info.get('chunks')} chunks). "
+                f"You can continue asking questions!", "ai_tag", "ai_msg")
+        else:
+            self._append_chat("system",
+                f"✅ Document '{Path(self.loaded_file).name}' has been processed "
+                f"({info.get('chunks')} chunks). You can now ask questions!", "ai_tag", "ai_msg")
+        
 
     def _on_process_error(self, error: str):
         self.progress.stop()

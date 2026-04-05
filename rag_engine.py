@@ -54,10 +54,10 @@ Answer:""")
 # ── Loader Registry ───────────────────────────────────────────────────────────
 
 LOADERS: dict[str, tuple] = {
-    ".pdf":  (PyPDFLoader,              {}),
-    ".txt":  (TextLoader,               {"encoding": "utf-8"}),
-    ".csv":  (CSVLoader,                {}),
-    ".docx": (Docx2txtLoader,           {}),
+    ".pdf":  (PyPDFLoader,               {}),
+    ".txt":  (TextLoader,                {"encoding": "utf-8"}),
+    ".csv":  (CSVLoader,                 {}),
+    ".docx": (Docx2txtLoader,            {}),
     ".md":   (UnstructuredMarkdownLoader, {}),
 }
 
@@ -68,13 +68,21 @@ class RAGEngine:
       load  →  split  →  embed  →  store (Chroma)  →  retrieve  →  generate
     """
 
-    CHAT_MODEL  = "minimax-m2.7:cloud"
-    EMBED_MODEL = "qwen3-embedding:0.6b"
+    CHAT_MODELS: dict[str, str] = {
+        "minimax": "minimax-m2.7:cloud",
+        "gemma":   "gemma4:e4b",
+    }
+    # Human-readable label → Ollama model string (used by the GUI combobox)
+    MODEL_DISPLAY_NAMES: dict[str, str] = {v: k.capitalize() for k, v in CHAT_MODELS.items()}
 
-    def __init__(self, model_name: str = CHAT_MODEL,
+    DEFAULT_CHAT_MODEL  = CHAT_MODELS["minimax"]   # ← change key here to switch default
+    EMBED_MODEL         = "qwen3-embedding:0.6b"
+
+    def __init__(self, model_name: str | None = None,
                  embed_model: str = EMBED_MODEL,
                  persist_dir: str = "./chroma_db"):
-        self.model_name  = model_name
+        # Use the class-level default if none supplied; evaluated at call time
+        self.model_name  = model_name if model_name is not None else self.DEFAULT_CHAT_MODEL
         self.embed_model = embed_model
         self.persist_dir = persist_dir
         self._vectorstore: Chroma | None = None
@@ -86,6 +94,7 @@ class RAGEngine:
     def set_model(self, model_name: str) -> None:
         """Hot-swap the Ollama model without re-indexing."""
         self.model_name = model_name
+        # Rebuild chain only if a document is already indexed
         if self._vectorstore is not None:
             self._build_chain(self._vectorstore, self._doc_info.get("top_k", 4))
 
@@ -100,7 +109,7 @@ class RAGEngine:
         Returns metadata dict for the GUI.
         """
         if model_name:
-            self.model_name = model_name   # chat model override
+            self.model_name = model_name   # chat model override from GUI
 
         path = Path(file_path)
         ext  = path.suffix.lower()
@@ -153,14 +162,14 @@ class RAGEngine:
         # 5. Collect metadata ──────────────────────────────────────────────────
         pages = len(documents)
         self._doc_info = {
-            "pages":        pages,
-            "chunks":       len(chunks),
-            "chunk_size":   chunk_size,
+            "pages":         pages,
+            "chunks":        len(chunks),
+            "chunk_size":    chunk_size,
             "chunk_overlap": chunk_overlap,
-            "loader":       loader_cls.__name__,
-            "chat_model":   self.model_name,
-            "embed_model":  self.embed_model,
-            "top_k":        top_k,
+            "loader":        loader_cls.__name__,
+            "chat_model":    self.model_name,
+            "embed_model":   self.embed_model,
+            "top_k":         top_k,
         }
         return self._doc_info
 
@@ -212,6 +221,41 @@ class RAGEngine:
             | llm
             | StrOutputParser()
         )
+
+    def load_existing(self, top_k: int = 4) -> dict | None:
+        """
+        Reload a previously persisted Chroma collection from disk.
+        Returns metadata dict if found, None if no collection exists.
+        """
+        try:
+            embeddings = OllamaEmbeddings(model=self.embed_model)
+            vectorstore = Chroma(
+                persist_directory=self.persist_dir,
+                embedding_function=embeddings,
+                collection_name="docmind_collection",
+            )
+            # Check if the collection actually has documents
+            count = vectorstore._collection.count()
+            if count == 0:
+                return None
+
+            self._vectorstore = vectorstore
+            self._build_chain(self._vectorstore, top_k)
+
+            self._doc_info = {
+                "pages":         "N/A (restored)",
+                "chunks":        count,
+                "chunk_size":    "N/A (restored)",
+                "chunk_overlap": "N/A (restored)",
+                "loader":        "N/A (restored)",
+                "chat_model":    self.model_name,
+                "embed_model":   self.embed_model,
+                "top_k":         top_k,
+            }
+            return self._doc_info
+
+        except Exception:
+            return None
 
     @staticmethod
     def _extract_source(doc) -> str:
