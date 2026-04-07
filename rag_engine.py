@@ -70,7 +70,7 @@ class RAGEngine:
 
     CHAT_MODELS: dict[str, str] = {
         "minimax": "minimax-m2.7:cloud",
-        "gemma":   "gemma4:e4b",
+        "gemma":   "gemma4:31b-cloud",
     }
     # Human-readable label → Ollama model string (used by the GUI combobox)
     MODEL_DISPLAY_NAMES: dict[str, str] = {v: k.capitalize() for k, v in CHAT_MODELS.items()}
