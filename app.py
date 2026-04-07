@@ -346,19 +346,21 @@ class DocMindApp:
         self.doc_info.config(state="normal")
         self.doc_info.delete("1.0", "end")
         self.doc_info.insert("end",
+            f"File        : {info.get('source_file', 'N/A')}\n"
             f"Pages/rows  : {info.get('pages', 'N/A')}\n"
             f"Chunks      : {info.get('chunks', 'N/A')}\n"
-            f"Chunk size  : {info.get('chunk_size')}\n"
-            f"Overlap     : {info.get('chunk_overlap')}\n"
-            f"Loader      : {info.get('loader')}\n"
-            f"Chat model  : {info.get('chat_model')}\n"
-            f"Embed model : {info.get('embed_model')}\n"
+            f"Chunk size  : {info.get('chunk_size', 'N/A')}\n"
+            f"Overlap     : {info.get('chunk_overlap', 'N/A')}\n"
+            f"Loader      : {info.get('loader', 'N/A')}\n"
+            f"Chat model  : {info.get('chat_model', 'N/A')}\n"
+            f"Embed model : {info.get('embed_model', 'N/A')}\n"
         )
         self.doc_info.config(state="disabled")
 
         if restored:
             self._append_chat("system",
-                f"✅ Previous session restored ({info.get('chunks')} chunks). "
+                f"✅ Previous session restored: '{info.get('source_file', 'Unknown')}' "
+                f"({info.get('chunks')} chunks, {info.get('pages')} pages). "
                 f"You can continue asking questions!", "ai_tag", "ai_msg")
         else:
             self._append_chat("system",

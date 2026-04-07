@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any
+import json
 
 # ── LangChain Document Loaders ────────────────────────────────────────────────
 from langchain_community.document_loaders import (
@@ -170,7 +171,15 @@ class RAGEngine:
             "chat_model":    self.model_name,
             "embed_model":   self.embed_model,
             "top_k":         top_k,
+            "source_file":   path.name,
         }
+
+        # Persist metadata next to chroma_db for session restore
+        meta_path = Path(self.persist_dir) / "docmind_meta.json"
+        meta_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(meta_path, "w", encoding="utf-8") as f:
+            json.dump(self._doc_info, f, indent=2)
+
         return self._doc_info
 
     def query(self, question: str, top_k: int = 4) -> dict:
@@ -225,7 +234,7 @@ class RAGEngine:
     def load_existing(self, top_k: int = 4) -> dict | None:
         """
         Reload a previously persisted Chroma collection from disk.
-        Returns metadata dict if found, None if no collection exists.
+        Returns full metadata dict if found, None if no collection exists.
         """
         try:
             embeddings = OllamaEmbeddings(model=self.embed_model)
@@ -234,24 +243,34 @@ class RAGEngine:
                 embedding_function=embeddings,
                 collection_name="docmind_collection",
             )
-            # Check if the collection actually has documents
             count = vectorstore._collection.count()
             if count == 0:
                 return None
 
             self._vectorstore = vectorstore
-            self._build_chain(self._vectorstore, top_k)
 
-            self._doc_info = {
-                "pages":         "N/A (restored)",
-                "chunks":        count,
-                "chunk_size":    "N/A (restored)",
-                "chunk_overlap": "N/A (restored)",
-                "loader":        "N/A (restored)",
-                "chat_model":    self.model_name,
-                "embed_model":   self.embed_model,
-                "top_k":         top_k,
-            }
+            # Load persisted metadata if available
+            meta_path = Path(self.persist_dir) / "docmind_meta.json"
+            if meta_path.exists():
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    self._doc_info = json.load(f)
+                # Always use current model (may have been switched in GUI)
+                self._doc_info["chat_model"] = self.model_name
+            else:
+                # Fallback if meta file missing (old session)
+                self._doc_info = {
+                    "pages":         "N/A",
+                    "chunks":        count,
+                    "chunk_size":    "N/A",
+                    "chunk_overlap": "N/A",
+                    "loader":        "N/A",
+                    "chat_model":    self.model_name,
+                    "embed_model":   self.embed_model,
+                    "top_k":         top_k,
+                    "source_file":   "Unknown",
+                }
+
+            self._build_chain(self._vectorstore, self._doc_info.get("top_k", top_k))
             return self._doc_info
 
         except Exception:
